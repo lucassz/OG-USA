@@ -46,11 +46,18 @@ from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 
-from . import get_micro_data
 from . import utils
 from ogusa.utils import DEFAULT_START_YEAR
 
+from pathlib import Path
+from rpcproxy.client import ProxyClient
+from rpc.kernelmanager import KernelManager
+
 TAX_ESTIMATE_PATH = os.environ.get("TAX_ESTIMATE_PATH", ".")
+
+kernel_info = {'get_micro': {
+    'module_path': (str(Path(__file__).absolute().parent) +
+                    '/get_micro_data_kernel.py')}}
 
 '''
 ------------------------------------------------------------------------
@@ -1538,11 +1545,14 @@ def tax_func_estimate(BW, S, starting_age, ending_age,
         os.makedirs(output_dir)
 
     # call tax caculator and get microdata
-    micro_data = get_micro_data.get_data(baseline=baseline,
-                                         start_year=beg_yr,
-                                         reform=reform, data=data,
-                                         client=client,
-                                         num_workers=num_workers)
+    with KernelManager(kernel_info) as km:
+        with ProxyClient(kernel_id='get_micro', serializer='msgpack') as pc:
+            get_micro_data = pc.get_remote('get_micro_data')
+            micro_data = get_micro_data.get_data(baseline=baseline,
+                                                 start_year=beg_yr,
+                                                 reform=reform, data=data,
+                                                 client=None,
+                                                 num_workers=num_workers)
 
     lazy_values = []
     for t in years_list:
